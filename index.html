@@ -823,6 +823,129 @@
   .btn-cancel-del { background: var(--blush-light); color: var(--navy); }
   .btn-confirm-del { background: #e74c3c; color: white; }
 </style>
+<style id="typo-overrides">
+#sobre-mi .section-title { font-size: 2.4rem !important; }
+#sobre-mi .section-desc { font-size: 1.05rem !important; }
+.service-card h3 { font-size: 1rem !important; }
+.service-card p { font-size: 0.9rem !important; }
+.blog-card h3 { font-size: 1rem !important; }
+.blog-card p { font-size: 0.85rem !important; }
+.contact-card-text strong { font-size: 0.95rem !important; }
+.contact-card-text span { font-size: 0.8rem !important; }
+</style>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAnau0015ul7PStC1AA-Vs3cVi9A9pVGSc",
+    authDomain: "micaela-acerbi-web.firebaseapp.com",
+    projectId: "micaela-acerbi-web",
+    storageBucket: "micaela-acerbi-web.firebasestorage.app",
+    messagingSenderId: "138747856819",
+    appId: "1:138747856819:web:7611be718226532a30adc6"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // ── MAKE DB AVAILABLE GLOBALLY ──
+  window.db = db;
+  window.fsDoc = doc;
+  window.fsGetDoc = getDoc;
+  window.fsSetDoc = setDoc;
+  window.fsCollection = collection;
+  window.fsGetDocs = getDocs;
+  window.fsAddDoc = addDoc;
+  window.fsDeleteDoc = deleteDoc;
+  window.fsUpdateDoc = updateDoc;
+  window.fsOnSnapshot = onSnapshot;
+  window.firebaseReady = true;
+
+  function setFbStatus(msg, ok) {
+    const el = document.getElementById('fbStatus');
+    if (el) el.textContent = ok ? '✅ Firebase conectado' : '❌ ' + msg;
+  }
+
+  // ── LOAD ALL DATA FROM FIREBASE ON START ──
+  async function loadFromFirebase() {
+    try {
+      // Load site settings (hero, about, typo, services header)
+      const settingsDoc = await getDoc(doc(db, 'site', 'settings'));
+      if (settingsDoc.exists()) {
+        const s = settingsDoc.data();
+        if (s.heroTitle) { const el = document.getElementById('heroTitle'); if (el) el.innerHTML = s.heroTitle; }
+        if (s.heroSub)   { const el = document.getElementById('heroSub');   if (el) el.textContent = s.heroSub; }
+        if (s.aboutText) {
+          const div = document.getElementById('aboutText');
+          if (div) {
+            const paras = s.aboutText.split('
+
+').filter(p => p.trim());
+            div.innerHTML = paras.map((p, i) =>
+              `<p class="section-desc"${i > 0 ? ' style="margin-top:0.75rem;"' : ''}>${p.trim()}</p>`
+            ).join('');
+          }
+        }
+        if (s.svcLabel) { const el = document.getElementById('svc-label'); if (el) el.textContent = s.svcLabel; }
+        if (s.svcTitle) { const el = document.getElementById('svc-title'); if (el) el.innerHTML = s.svcTitle; }
+        if (s.svcDesc)  { const el = document.getElementById('svc-desc');  if (el) el.textContent = s.svcDesc; }
+        if (s.typo) {
+          Object.keys(s.typo).forEach(id => {
+            const range = document.getElementById(id);
+            if (range) range.value = s.typo[id];
+          });
+          if (window.apLoadTypoValues) window.apLoadTypoValues(s.typo);
+        }
+        if (s.photoSize) {
+          const bg = document.querySelector('.about-visual-bg');
+          if (bg) { bg.style.width = s.photoSize + '%'; bg.style.maxWidth = Math.round(s.photoSize * 3.2) + 'px'; }
+        }
+        if (s.photoSrc) {
+          const img = document.querySelector('.about-visual-bg img');
+          if (img) img.src = s.photoSrc;
+        }
+      }
+
+      // Load services
+      const svcDoc = await getDoc(doc(db, 'site', 'services'));
+      if (svcDoc.exists()) {
+        const sv = svcDoc.data();
+        ['dtm','gen','endo'].forEach(tab => {
+          if (sv[tab] && sv[tab].length) {
+            window.svcData[tab] = sv[tab];
+            if (window.apApplySvcToDOM) window.apApplySvcToDOM(tab);
+          }
+        });
+      }
+
+      // Load blog posts
+      const postsSnap = await getDocs(collection(db, 'posts'));
+      if (!postsSnap.empty) {
+        const fbPosts = [];
+        postsSnap.forEach(d => fbPosts.push({id: d.id, ...d.data()}));
+        fbPosts.sort((a,b) => (b.order||0) - (a.order||0));
+        window.posts = fbPosts;
+        window.nextId = Math.max(...fbPosts.map(p => parseInt(p.id)||0), 0) + 1;
+        if (window.renderBlog) window.renderBlog();
+      }
+
+    } catch(e) {
+      console.warn('Firebase load error:', e);
+      setFbStatus(e.message, false);
+    }
+    setFbStatus('', true);
+  }
+
+  // Wait for DOM then load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadFromFirebase);
+  } else {
+    setTimeout(loadFromFirebase, 100);
+  }
+</script>
 </head>
 <body>
 
@@ -856,8 +979,8 @@
   <div class="hero-inner">
     <div class="hero-text fade-in">
       <span class="hero-badge">Odontóloga Especializada en ATM y Bruxismo</span>
-      <h1 id="heroTitle">Cuidamos tu bienestar,<br>desde la <em>raíz</em></h1>
-      <p class="hero-sub" id="heroSub">Especializada en Bruxismo y Disfunciones Temporomandibulares con enfoque integral. Odontología general y endodoncia en Córdoba.</p>
+      <h1 id="heroTitle"style="font-size:3.5rem;">Cuidamos tu bienestar,<br>desde la <em>raíz</em></h1>
+      <p class="hero-sub" id="heroSub"style="font-size:1.1rem;">Especializada en Bruxismo y Disfunciones Temporomandibulares con enfoque integral. Odontología general y endodoncia en Córdoba.</p>
       <div class="hero-btns">
         <a href="https://wa.me/message/XKHZLL4TXC46C1?text=Hola%20Od.%20Micaela!%20Te%20escribo%20desde%20tu%20p%C3%A1gina%20web.%20Quisiera%20pedir%20un%20turno%20%F0%9F%98%8A" target="_blank" class="btn-primary">
           📱 Pedir turno por WhatsApp
@@ -1046,7 +1169,7 @@
         <div class="divider"></div>
         <p class="section-desc">Artículos y consejos sobre salud bucal, bruxismo y bienestar. ¡Preguntame lo que quieras!</p>
       </div>
-      <button class="new-post-btn" onclick="toggleNewPost()">✏️ Nueva entrada</button>
+      <button class="new-post-btn" id="newPostBtnPublic" onclick="toggleNewPost()" style="display:none;">✏️ Nueva entrada</button>
     </div>
 
     <!-- New Post Form -->
@@ -1261,7 +1384,7 @@
 
 <!-- Admin top bar -->
 <div class="admin-bar" id="adminBar">
-  <span>🛡️ Modo administración activo</span>
+  <span>🛡️ Modo administración activo &nbsp;<span id="fbStatus" style="font-size:0.75rem;opacity:0.8;">⏳ Conectando Firebase...</span></span>
   <div style="display:flex;gap:0.75rem;align-items:center;">
     <button class="admin-logout" onclick="openAdminPanel()">⚙️ Abrir panel</button>
     <button class="admin-logout" onclick="adminLogout()">Cerrar sesión</button>
@@ -1778,6 +1901,15 @@ let nextId = posts.reduce((max, p) => Math.max(max, p.id), 0) + 1;
 
 function savePosts() {
   try { localStorage.setItem('mao_posts', JSON.stringify(posts)); } catch(e) {}
+  // Save to Firebase
+  if (window.db) {
+    posts.forEach(async (post, i) => {
+      try {
+        const postId = String(post.id);
+        await window.fsSetDoc(window.fsDoc(window.db, 'posts', postId), {...post, order: posts.length - i});
+      } catch(e) { console.warn('Firebase post save error:', e); }
+    });
+  }
 }
 
 // ── RENDER BLOG ──
@@ -1885,6 +2017,35 @@ function publishPost() {
   setTimeout(() => document.getElementById('blog').scrollIntoView({ behavior:'smooth' }), 100);
 }
 
+// ── FIREBASE SETTINGS SAVE ──
+async function fbSaveSettings(data) {
+  if (!window.db) return;
+  try {
+    const ref = window.fsDoc(window.db, 'site', 'settings');
+    const existing = await window.fsGetDoc(ref);
+    const current = existing.exists() ? existing.data() : {};
+    await window.fsSetDoc(ref, {...current, ...data});
+  } catch(e) { console.warn('Firebase settings save error:', e); }
+}
+
+async function fbSaveServices() {
+  if (!window.db) return;
+  try {
+    await window.fsSetDoc(window.fsDoc(window.db, 'site', 'services'), {
+      dtm: window.svcData.dtm || [],
+      gen: window.svcData.gen || [],
+      endo: window.svcData.endo || []
+    });
+  } catch(e) { console.warn('Firebase services save error:', e); }
+}
+
+async function fbDeletePost(postId) {
+  if (!window.db) return;
+  try {
+    await window.fsDeleteDoc(window.fsDoc(window.db, 'posts', String(postId)));
+  } catch(e) { console.warn('Firebase delete error:', e); }
+}
+
 // ── ADMIN ──
 const ADMIN_PASS = 'macerbi';
 let isAdmin = false;
@@ -1914,6 +2075,8 @@ function checkAdminPass() {
     document.getElementById('adminToggle').classList.add('active');
     document.getElementById('adminToggle').title = 'Abrir panel de administración';
     document.getElementById('blogGrid').classList.add('admin-mode');
+    const btn = document.getElementById('newPostBtnPublic');
+    if (btn) btn.style.display = 'flex';
     renderBlog();
     openAdminPanel();
   } else {
@@ -1931,6 +2094,8 @@ function adminLogout() {
   document.getElementById('blogGrid').classList.remove('admin-mode');
   document.getElementById('adminPanel').classList.remove('open');
   document.body.style.overflow = '';
+  const btn = document.getElementById('newPostBtnPublic');
+  if (btn) btn.style.display = 'none';
   renderBlog();
 }
 
@@ -2155,19 +2320,13 @@ function apSaveHero() {
   const subVal = document.getElementById('apHeroSub').value.trim();
   const h1 = document.getElementById('heroTitle');
   const sub = document.getElementById('heroSub');
-
   if (h1 && titleVal) {
     const parts = titleVal.split('|');
-    if (parts.length === 2) {
-      h1.innerHTML = `${parts[0]},<br>desde la <em>${parts[1].replace('desde la ','').replace('raíz','').trim() || 'raíz'}</em>`;
-      // simpler: just render with break
-      h1.innerHTML = parts[0] + '<br>' + parts[1];
-    } else {
-      h1.innerHTML = titleVal;
-    }
+    h1.innerHTML = parts.length === 2 ? parts[0] + '<br>' + parts[1] : titleVal;
   }
   if (sub && subVal) sub.textContent = subVal;
-
+  // Save to Firebase
+  fbSaveSettings({ heroTitle: h1 ? h1.innerHTML : titleVal, heroSub: subVal });
   const msg = document.getElementById('apHeroMsg');
   msg.textContent = '✅ Sección Inicio actualizada.';
   msg.style.display = 'block';
@@ -2177,15 +2336,15 @@ function apSaveHero() {
 // ── TYPOGRAPHY ──
 const TYPO_DEFAULTS = {
   'typo-hero-title':    { val: 3.5,   unit: 'rem', target: 'heroTitle',                    prop: 'fontSize' },
-  'typo-hero-sub':      { val: 1.05,  unit: 'rem', target: 'heroSub',                      prop: 'fontSize' },
-  'typo-about-title':   { val: 2.2,   unit: 'rem', target: '.section-title', scope: '#sobre-mi', prop: 'fontSize' },
-  'typo-about-desc':    { val: 1.0,   unit: 'rem', target: '.section-desc',  scope: '#sobre-mi', prop: 'fontSize' },
+  'typo-hero-sub':      { val: 1.1,  unit: 'rem', target: 'heroSub',                      prop: 'fontSize' },
+  'typo-about-title':   { val: 2.4,   unit: 'rem', target: '.section-title', scope: '#sobre-mi', prop: 'fontSize' },
+  'typo-about-desc':    { val: 1.05,   unit: 'rem', target: '.section-desc',  scope: '#sobre-mi', prop: 'fontSize' },
   'typo-service-title': { val: 1.0,   unit: 'rem', target: '.service-card h3',              prop: 'fontSize' },
-  'typo-service-desc':  { val: 0.875, unit: 'rem', target: '.service-card p',               prop: 'fontSize' },
+  'typo-service-desc':  { val: 0.9, unit: 'rem', target: '.service-card p',               prop: 'fontSize' },
   'typo-blog-title':    { val: 1.0,   unit: 'rem', target: '.blog-card h3',                 prop: 'fontSize' },
   'typo-blog-desc':     { val: 0.85,  unit: 'rem', target: '.blog-card p',                  prop: 'fontSize' },
   'typo-contact-title': { val: 0.95,  unit: 'rem', target: '.contact-card-text strong',     prop: 'fontSize' },
-  'typo-contact-sub':   { val: 0.82,  unit: 'rem', target: '.contact-card-text span',       prop: 'fontSize' },
+  'typo-contact-sub':   { val: 0.8,  unit: 'rem', target: '.contact-card-text span',       prop: 'fontSize' },
 };
 
 function apTypoApply(id, val) {
@@ -2246,6 +2405,8 @@ function apSaveTypo() {
     if (range) data[id] = parseFloat(range.value);
   });
   localStorage.setItem('mao_typo', JSON.stringify(data));
+  // Save to Firebase
+  fbSaveSettings({ typo: data });
   const msg = document.getElementById('apTypoMsg');
   msg.textContent = '✅ Tamaños guardados correctamente.';
   msg.style.display = 'block';
@@ -2329,25 +2490,18 @@ function apUpdatePhotoSize(val) {
 
 function apSavePhoto() {
   const pct = document.getElementById('photoSizeRange').value;
-
-  // Save size
   localStorage.setItem('mao_photo_size', pct);
   const bg = document.querySelector('.about-visual-bg');
-  if (bg) {
-    bg.style.width = pct + '%';
-    bg.style.maxWidth = Math.round(pct * 3.2) + 'px';
-  }
-
-  // Save photo if new one was selected
+  if (bg) { bg.style.width = pct + '%'; bg.style.maxWidth = Math.round(pct * 3.2) + 'px'; }
+  const saveData = { photoSize: parseInt(pct) };
   if (pendingPhotoBase64) {
     const img = document.querySelector('.about-visual-bg img');
-    if (img) {
-      img.src = pendingPhotoBase64;
-      localStorage.setItem('mao_about_photo', pendingPhotoBase64);
-    }
+    if (img) { img.src = pendingPhotoBase64; localStorage.setItem('mao_about_photo', pendingPhotoBase64); }
+    saveData.photoSrc = pendingPhotoBase64;
     pendingPhotoBase64 = null;
   }
-
+  // Save to Firebase
+  fbSaveSettings(saveData);
   const msg = document.getElementById('apPhotoMsg');
   msg.textContent = '✅ Foto y tamaño guardados.';
   msg.style.display = 'block';
@@ -2386,7 +2540,8 @@ function apSaveAbout() {
   div.innerHTML = paras.map((p, i) =>
     `<p class="section-desc"${i > 0 ? ' style="margin-top:0.75rem;"' : ''}>${p.trim()}</p>`
   ).join('\n');
-
+  // Save to Firebase
+  fbSaveSettings({ aboutText: val });
   const msg = document.getElementById('apAboutMsg');
   msg.textContent = '✅ Sección "Sobre mí" actualizada.';
   msg.style.display = 'block';
@@ -2447,6 +2602,7 @@ function closeConfirmDelete() {
 
 function confirmDeletePost() {
   if (postToDelete === null) return;
+  fbDeletePost(postToDelete);
   posts = posts.filter(p => p.id !== postToDelete);
   savePosts();
   closeConfirmDelete();
@@ -2617,7 +2773,6 @@ function apRenderSvcCards(tab) {
 
 function apSaveSvcCards(tab) {
   const cards = svcData[tab] || [];
-  // Read all fields back
   cards.forEach((c, i) => {
     const iconEl  = document.getElementById(`svc-icon-${tab}-${i}`);
     const titleEl = document.getElementById(`svc-title-${tab}-${i}`);
@@ -2626,12 +2781,12 @@ function apSaveSvcCards(tab) {
     if (titleEl) c.title = titleEl.value.trim();
     if (descEl)  c.desc  = descEl.value.trim();
   });
-  // Rebuild DOM tab
   apApplySvcToDOM(tab);
-  // Save to localStorage
   const stored = JSON.parse(localStorage.getItem('mao_svc_full') || '{}');
   stored[tab] = svcData[tab];
   localStorage.setItem('mao_svc_full', JSON.stringify(stored));
+  // Save to Firebase
+  fbSaveServices();
   const msg = document.getElementById('apSvcCardsMsg');
   msg.textContent = '✅ Tarjetas guardadas correctamente.';
   msg.style.display = 'block';
@@ -2698,6 +2853,8 @@ function apSaveSvcHeader() {
   if (titleVal) { const el = document.getElementById('svc-title'); if (el) el.innerHTML = `${titleVal.split(' ').slice(0,-1).join(' ')} <em>${titleVal.split(' ').pop()}</em>`; }
   if (descVal)  { const el = document.getElementById('svc-desc');  if (el) el.textContent = descVal; }
   localStorage.setItem('mao_svc_header', JSON.stringify({label:labelVal, title:titleVal, desc:descVal}));
+  // Save to Firebase
+  fbSaveSettings({ svcLabel: labelVal, svcTitle: titleVal, svcDesc: descVal });
   const msg = document.getElementById('apSvcHeaderMsg');
   msg.textContent = '✅ Encabezado guardado.';
   msg.style.display = 'block';
@@ -2836,6 +2993,20 @@ apLoadSvcOverrides();
 renderBlog();
 carouselInit();
 observeFadeIns();
+// Expose functions for Firebase loader
+window.renderBlog = renderBlog;
+window.apApplySvcToDOM = apApplySvcToDOM;
+window.apLoadTypoValues = function(typo) {
+  Object.keys(typo).forEach(id => {
+    const range = document.getElementById(id);
+    if (range) {
+      range.value = typo[id];
+      const label = document.getElementById(id + '-val');
+      if (label) label.textContent = parseFloat(typo[id]).toFixed(2).replace(/\.?0+$/, '') + 'rem';
+      apTypoApply(id, typo[id]);
+    }
+  });
+};
 </script>
 </body>
 </html>
