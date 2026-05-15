@@ -2226,6 +2226,16 @@
 // ── DATA ──
 const defaultPosts = [
   {
+    id: 8,
+    title: "Luz azul y sueño: cómo las pantallas nocturnas afectan el bruxismo y la ATM",
+    tag: "Bruxismo",
+    summary: "La exposición a pantallas antes de dormir puede alterar la melatonina, el cortisol y el sistema nervioso, contribuyendo a síntomas de bruxismo y disfunción temporomandibular.",
+    emoji: "💡",
+    date: "1 de mayo de 2026",
+    content: `<p>Vivimos rodeados de pantallas. Y la luz azul que emiten puede alterar procesos biológicos fundamentales relacionados con el sueño, las hormonas y la recuperación del cuerpo.</p>`,
+    qa: []
+  },
+  {
     id: 7,
     title: "Bruxismo en Córdoba: causas, síntomas y tratamiento",
     tag: "Bruxismo",
@@ -2337,7 +2347,7 @@ const defaultPosts = [
   }
 ];
 
-const POSTS_VERSION = 3; // bump when defaultPosts change
+const POSTS_VERSION = 4; // bump when defaultPosts change
 const savedVersion = parseInt(localStorage.getItem('mao_posts_v') || '0');
 let posts;
 if (savedVersion < POSTS_VERSION) {
@@ -2371,6 +2381,7 @@ const POST_SLUGS = {
   5: '/pulpa-vital-cordoba',
   6: '/bruxismo-medicacion',
   7: '/bruxismo-cordoba',
+  8: '/luz-azul-sueno-bruxismo',
 };
 
 // ── RENDER BLOG ──
